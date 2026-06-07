@@ -11,7 +11,6 @@ interface CmsStackProps extends cdk.StackProps {
   stage: string;
   domain: string;
   vpc: ec2.IVpc;
-  securityGroup: ec2.ISecurityGroup;
   databaseSecret: secretsmanager.ISecret;
   databaseEndpoint: string;
   cacheEndpoint: string;
@@ -83,7 +82,7 @@ export class CmsStack extends cdk.Stack {
             logRetention: logs.RetentionDays.TWO_WEEKS,
           }),
         },
-        securityGroups: [props.securityGroup],
+        securityGroups: undefined,
         publicLoadBalancer: true,
         assignPublicIp: false,
       }

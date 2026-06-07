@@ -25,7 +25,7 @@ export class EtlStack extends cdk.Stack {
       functionName: `areadev-${props.stage}-etl-sync`,
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "src/lambda/handler.handler",
-      code: lambda.Code.fromAsset("../placeholder"), // Replaced during deploy
+      code: lambda.Code.fromAsset("./placeholder"), // Replaced during deploy
       memorySize: isProd ? 1024 : 512,
       timeout: cdk.Duration.minutes(10),
       vpc: props.vpc,

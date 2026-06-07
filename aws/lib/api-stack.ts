@@ -29,7 +29,7 @@ export class ApiStack extends cdk.Stack {
       functionName: `areadev-${props.stage}-api`,
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "dist/lambda.handler",
-      code: lambda.Code.fromAsset("../placeholder"),
+      code: lambda.Code.fromAsset("./placeholder"),
       memorySize: isProd ? 1024 : 512,
       timeout: cdk.Duration.seconds(30),
       vpc: props.vpc,

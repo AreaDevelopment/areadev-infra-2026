@@ -77,7 +77,6 @@ new CmsStack(app, `${prefix}-cms`, {
   stage,
   domain,
   vpc: vpc.vpc,
-  securityGroup: vpc.ecsSecurityGroup,
   databaseSecret: database.secret,
   databaseEndpoint: database.clusterEndpoint,
   cacheEndpoint: cache.endpoint,

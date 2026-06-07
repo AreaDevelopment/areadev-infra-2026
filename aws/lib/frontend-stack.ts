@@ -33,7 +33,7 @@ export class FrontendStack extends cdk.Stack {
       functionName: `areadev-${props.stage}-frontend-ssr`,
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "index.handler",
-      code: lambda.Code.fromAsset("../placeholder"),
+      code: lambda.Code.fromAsset("./placeholder"),
       memorySize: isProd ? 1024 : 512,
       timeout: cdk.Duration.seconds(30),
       environment: {
@@ -79,6 +79,6 @@ export class FrontendStack extends cdk.Stack {
       value: distribution.distributionDomainName,
     });
     new cdk.CfnOutput(this, "ExpectedDomain", { value: siteDomain });
-    new cdk.CfnOutput(this, "StaticBucket", { value: staticBucket.bucketName });
+    new cdk.CfnOutput(this, "StaticBucketName", { value: staticBucket.bucketName });
   }
 }
