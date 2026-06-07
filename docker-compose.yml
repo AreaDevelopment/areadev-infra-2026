@@ -76,7 +76,7 @@ services:
   # LocalStack — AWS service emulation (S3, SQS)
   # ─────────────────────────────────────────────
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:3.8
     container_name: infra-localstack
     ports:
       - "4566:4566"
