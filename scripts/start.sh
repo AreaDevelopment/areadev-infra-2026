@@ -42,6 +42,58 @@ init_submodules() {
 }
 
 # ─────────────────────────────────────────────────────────────
+# Install dependencies and build in each project
+# ─────────────────────────────────────────────────────────────
+install_and_build() {
+  log_step "Installing Dependencies & Building"
+
+  local projects=("$DIRECTUS_DIR" "$API_DIR" "$FRONTEND_DIR")
+  local names=("Directus CMS" "API" "Frontend")
+
+  for i in "${!projects[@]}"; do
+    local dir="${projects[$i]}"
+    local name="${names[$i]}"
+
+    if [[ ! -d "$dir" ]]; then
+      log_warn "$name not found at $dir, skipping"
+      continue
+    fi
+
+    cd "$dir"
+
+    # pnpm install (if node_modules is missing or lockfile changed)
+    if [[ ! -d "node_modules" ]] || [[ "pnpm-lock.yaml" -nt "node_modules/.pnpm/lock.yaml" ]]; then
+      log_info "$name — installing dependencies..."
+      pnpm install --frozen-lockfile 2>"$LOGS_DIR/${name,,}-install.log" || \
+        pnpm install 2>"$LOGS_DIR/${name,,}-install.log"
+      log_ok "$name — dependencies installed"
+    else
+      log_ok "$name — dependencies up to date"
+    fi
+  done
+
+  # Build Directus extensions (submodules)
+  if [[ -d "$DIRECTUS_DIR" ]]; then
+    cd "$DIRECTUS_DIR"
+    for ext_dir in extensions/*/; do
+      if [[ -f "$ext_dir/package.json" ]]; then
+        local ext_name
+        ext_name=$(basename "$ext_dir")
+        if [[ ! -d "$ext_dir/dist" ]] || [[ "$ext_dir/src" -nt "$ext_dir/dist" ]]; then
+          log_info "Building Directus extension: $ext_name..."
+          (cd "$ext_dir" && pnpm install --frozen-lockfile 2>/dev/null || pnpm install && pnpm run build) \
+            >"$LOGS_DIR/ext-$ext_name.log" 2>&1 && \
+            log_ok "Extension $ext_name built" || \
+            log_warn "Extension $ext_name build had issues (see .logs/ext-$ext_name.log)"
+        else
+          log_ok "Extension $ext_name — already built"
+        fi
+      fi
+    done
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────
 # Start docker-compose infrastructure services
 # ─────────────────────────────────────────────────────────────
 start_infra() {
@@ -228,6 +280,7 @@ main() {
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
   init_submodules
+  install_and_build
   start_infra
   wait_for_infra 120
   start_directus
