@@ -1,0 +1,16 @@
+{
+  "name": "areadev-etl-cron",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx cron-runner.ts"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11"
+  }
+}

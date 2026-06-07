@@ -1,0 +1,31 @@
+{
+  "name": "areadev-infra-cdk",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for AreaDevelopment",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "deploy:stage": "cdk deploy --all --context stage=stage",
+    "deploy:prod": "cdk deploy --all --context stage=prod",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy --all"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "aws-cdk": "^2.170.0",
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.170.0",
+    "constructs": "^10.3.0"
+  }
+}

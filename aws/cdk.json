@@ -1,0 +1,13 @@
+{
+  "app": "npx ts-node bin/app.ts",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "node_modules", "dist", "cdk.out", "**/*.d.ts", "**/*.js"]
+  },
+  "context": {
+    "account": "",
+    "region": "us-east-1",
+    "domain": "areadevelopment.com",
+    "stage": "stage"
+  }
+}

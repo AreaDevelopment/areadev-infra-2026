@@ -1,0 +1,9 @@
+.env
+services/mssql/data/
+services/postgis/data/
+node_modules/
+aws/node_modules/
+aws/cdk.out/
+.pids/
+.logs/
+*.bak
