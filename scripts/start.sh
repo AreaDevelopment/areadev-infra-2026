@@ -221,6 +221,83 @@ start_directus() {
   else
     log_warn "directus-sync push had issues (see .logs/directus-sync.log)"
   fi
+
+  # Configure static API token for the admin user
+  configure_directus_token
+}
+
+# ─────────────────────────────────────────────────────────────
+# Set the admin user's static token so the ETL can authenticate
+# ─────────────────────────────────────────────────────────────
+configure_directus_token() {
+  local etl_env="$ETL_DIR/.env"
+  if [[ ! -f "$etl_env" ]]; then
+    log_warn "ETL .env not found at $etl_env — skipping token configuration"
+    return 0
+  fi
+
+  local api_token
+  api_token=$(grep -E '^API_TOKEN=' "$etl_env" | cut -d= -f2-)
+  if [[ -z "$api_token" ]]; then
+    log_warn "API_TOKEN not set in ETL .env — skipping token configuration"
+    return 0
+  fi
+
+  local admin_email="${DIRECTUS_ADMIN_EMAIL:-admin@example.com}"
+  local admin_password="${DIRECTUS_ADMIN_PASSWORD:-d1r3ctu5}"
+
+  # Check if the token already works
+  local status
+  status=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $api_token" http://localhost:8055/users/me)
+  if [[ "$status" == "200" ]]; then
+    log_ok "Directus API token already valid"
+    return 0
+  fi
+
+  log_info "Configuring Directus static API token..."
+
+  # Login as admin to get a temporary access token
+  local login_response
+  login_response=$(curl -s -X POST http://localhost:8055/auth/login \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\"}")
+
+  local access_token
+  access_token=$(echo "$login_response" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['access_token'])" 2>/dev/null)
+  if [[ -z "$access_token" ]]; then
+    log_warn "Could not login to Directus — skipping token configuration"
+    return 0
+  fi
+
+  # Get the admin user's ID
+  local user_id
+  user_id=$(curl -s -H "Authorization: Bearer $access_token" http://localhost:8055/users/me \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+
+  # Set the static token on the admin user
+  curl -s -X PATCH "http://localhost:8055/users/$user_id" \
+    -H "Authorization: Bearer $access_token" \
+    -H "Content-Type: application/json" \
+    -d "{\"token\":\"$api_token\"}" >/dev/null
+
+  # Verify it works
+  status=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $api_token" http://localhost:8055/users/me)
+  if [[ "$status" != "200" ]]; then
+    log_warn "Failed to set Directus static token"
+    return 0
+  fi
+
+  log_ok "Directus static API token configured"
+
+  # Update DEFAULT_DIRECTUS_USER in ETL .env if it differs
+  local current_user
+  current_user=$(grep -E '^DEFAULT_DIRECTUS_USER=' "$etl_env" | cut -d= -f2-)
+  if [[ "$current_user" != "$user_id" ]]; then
+    sed -i "s/^DEFAULT_DIRECTUS_USER=.*/DEFAULT_DIRECTUS_USER=$user_id/" "$etl_env"
+    log_ok "Updated DEFAULT_DIRECTUS_USER in ETL .env → $user_id"
+  fi
 }
 
 # ─────────────────────────────────────────────────────────────
