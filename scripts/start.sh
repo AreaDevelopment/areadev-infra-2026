@@ -197,6 +197,7 @@ start_directus() {
 
   cd "$DIRECTUS_DIR"
   log_info "Starting Directus..."
+  docker compose down --remove-orphans 2>/dev/null || true
   docker compose up -d
   log_ok "Directus container starting"
 

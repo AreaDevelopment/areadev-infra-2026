@@ -48,7 +48,17 @@ echo -e "${RED} Nuking infrastructure...${NC}"
 echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-log_info "Stopping and removing containers..."
+PROJECTS_DIR="$(dirname "$PROJECT_ROOT")"
+
+# Tear down sibling project containers that share the areadev-net network
+for dir in "$PROJECTS_DIR/areadev-directus-cms-v1" "$PROJECTS_DIR/areadev-api-2025" "$PROJECTS_DIR/areadev-frontend-2025"; do
+  if [[ -f "$dir/docker-compose.yml" || -f "$dir/compose.yml" ]]; then
+    log_info "Stopping containers in $(basename "$dir")..."
+    (cd "$dir" && docker compose down --remove-orphans 2>/dev/null) || true
+  fi
+done
+
+log_info "Stopping and removing infrastructure containers..."
 docker compose down --volumes --remove-orphans 2>/dev/null || true
 
 log_info "Removing named volumes..."
