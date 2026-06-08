@@ -176,7 +176,7 @@ start_directus() {
 
   # Push schema migrations via directus-sync
   log_info "Pushing Directus schema migrations (directus-sync)..."
-  if docker exec directus_cms npx directus-sync push -y 2>"$LOGS_DIR/directus-sync.log"; then
+  if docker exec directus_cms npx directus-sync push 2>"$LOGS_DIR/directus-sync.log"; then
     log_ok "Directus schema migrations applied"
   else
     log_warn "directus-sync push had issues (see .logs/directus-sync.log)"
