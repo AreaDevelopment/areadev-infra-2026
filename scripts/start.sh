@@ -174,6 +174,8 @@ restore_mssql() {
 
   log_info "Restoring AreaDevelopment database from backup..."
   docker cp "$backup_file" infra-mssql:/var/opt/mssql/backup/areadevelopment.bak
+  docker cp "$PROJECT_ROOT/services/mssql/restore_db.sh" infra-mssql:/var/opt/mssql/restore_db.sh
+  docker exec infra-mssql chmod +x /var/opt/mssql/restore_db.sh
   if docker exec infra-mssql /var/opt/mssql/restore_db.sh 2>&1 | tee "$LOGS_DIR/mssql-restore.log"; then
     log_ok "AreaDevelopment database restored"
   else

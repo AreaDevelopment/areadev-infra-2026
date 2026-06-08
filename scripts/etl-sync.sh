@@ -58,6 +58,8 @@ preflight() {
     if [[ -f "$backup_file" ]]; then
       log_info "AreaDevelopment database not found — restoring from backup..."
       docker cp "$backup_file" infra-mssql:/var/opt/mssql/backup/areadevelopment.bak
+      docker cp "$PROJECT_ROOT/services/mssql/restore_db.sh" infra-mssql:/var/opt/mssql/restore_db.sh
+      docker exec infra-mssql chmod +x /var/opt/mssql/restore_db.sh
       docker exec infra-mssql /var/opt/mssql/restore_db.sh 2>&1 | tee "$LOGS_DIR/mssql-restore.log"
       log_ok "AreaDevelopment database restored"
     else
