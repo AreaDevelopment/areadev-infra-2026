@@ -15,6 +15,7 @@ PROJECTS_DIR="$(dirname "$PROJECT_ROOT")"
 DIRECTUS_DIR="$PROJECTS_DIR/areadev-directus-cms-v1"
 API_DIR="$PROJECTS_DIR/areadev-api-2025"
 FRONTEND_DIR="$PROJECTS_DIR/areadev-frontend-2025"
+ETL_DIR="$PROJECTS_DIR/areadev-etl-2024"
 
 PIDS_DIR="$PROJECT_ROOT/.pids"
 LOGS_DIR="$PROJECT_ROOT/.logs"
@@ -143,6 +144,42 @@ wait_for_infra() {
       sleep 2
     done
   done
+}
+
+# ─────────────────────────────────────────────────────────────
+# Restore MSSQL legacy database (if not already present)
+# ─────────────────────────────────────────────────────────────
+restore_mssql() {
+  log_step "MSSQL Legacy Database"
+
+  local backup_file="$ETL_DIR/mssql/areadevelopment.bak"
+  local sa_password="${MSSQL_SA_PASSWORD:-YourStrongPassword123}"
+
+  # Check if AreaDevelopment database already exists
+  local db_exists
+  db_exists=$(docker exec infra-mssql /opt/mssql-tools18/bin/sqlcmd \
+    -S localhost -U sa -P "$sa_password" -C -h -1 \
+    -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.databases WHERE name = 'AreaDevelopment'" -b 2>/dev/null | tr -d '[:space:]')
+
+  if [[ "$db_exists" == "1" ]]; then
+    log_ok "AreaDevelopment database already exists, skipping restore"
+    return 0
+  fi
+
+  if [[ ! -f "$backup_file" ]]; then
+    log_warn "Backup file not found at $backup_file — skipping MSSQL restore"
+    log_warn "Place areadevelopment.bak in areadev-etl-2024/mssql/ to enable restore"
+    return 0
+  fi
+
+  log_info "Restoring AreaDevelopment database from backup..."
+  docker cp "$backup_file" infra-mssql:/var/opt/mssql/backup/areadevelopment.bak
+  if docker exec infra-mssql /var/opt/mssql/restore_db.sh 2>&1 | tee "$LOGS_DIR/mssql-restore.log"; then
+    log_ok "AreaDevelopment database restored"
+  else
+    log_err "MSSQL restore failed (see .logs/mssql-restore.log)"
+    return 1
+  fi
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -283,6 +320,7 @@ main() {
   install_and_build
   start_infra
   wait_for_infra 120
+  restore_mssql
   start_directus
   start_api
   start_frontend

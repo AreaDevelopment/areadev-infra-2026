@@ -46,6 +46,27 @@ preflight() {
     fi
   done
 
+  # Check that AreaDevelopment database exists in MSSQL
+  local sa_password="${MSSQL_SA_PASSWORD:-YourStrongPassword123}"
+  local db_exists
+  db_exists=$(docker exec infra-mssql /opt/mssql-tools18/bin/sqlcmd \
+    -S localhost -U sa -P "$sa_password" -C -h -1 \
+    -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.databases WHERE name = 'AreaDevelopment'" -b 2>/dev/null | tr -d '[:space:]')
+
+  if [[ "$db_exists" != "1" ]]; then
+    local backup_file="$ETL_DIR/mssql/areadevelopment.bak"
+    if [[ -f "$backup_file" ]]; then
+      log_info "AreaDevelopment database not found — restoring from backup..."
+      docker cp "$backup_file" infra-mssql:/var/opt/mssql/backup/areadevelopment.bak
+      docker exec infra-mssql /var/opt/mssql/restore_db.sh 2>&1 | tee "$LOGS_DIR/mssql-restore.log"
+      log_ok "AreaDevelopment database restored"
+    else
+      log_err "AreaDevelopment database not found in MSSQL and no backup at $backup_file"
+      log_err "Place areadevelopment.bak in areadev-etl-2024/mssql/ or run scripts/start.sh"
+      exit 1
+    fi
+  fi
+
   log_ok "Pre-flight checks passed"
 }
 
