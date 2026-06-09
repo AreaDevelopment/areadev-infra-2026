@@ -247,11 +247,15 @@ configure_directus_token() {
   local admin_password="${DIRECTUS_ADMIN_PASSWORD:-d1r3ctu5}"
 
   # Check if the token already works
-  local status
+  local status user_response user_id
   status=$(curl -s -o /dev/null -w "%{http_code}" \
     -H "Authorization: Bearer $api_token" http://localhost:8055/users/me)
   if [[ "$status" == "200" ]]; then
     log_ok "Directus API token already valid"
+    # Still sync the user ID in case it changed
+    user_id=$(curl -s -H "Authorization: Bearer $api_token" http://localhost:8055/users/me \
+      | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+    sync_directus_user_id "$etl_env" "$user_id"
     return 0
   fi
 
@@ -291,7 +295,20 @@ configure_directus_token() {
 
   log_ok "Directus static API token configured"
 
-  # Update DEFAULT_DIRECTUS_USER in ETL .env if it differs
+  sync_directus_user_id "$etl_env" "$user_id"
+}
+
+# ─────────────────────────────────────────────────────────────
+# Sync DEFAULT_DIRECTUS_USER in ETL .env to match admin UUID
+# ─────────────────────────────────────────────────────────────
+sync_directus_user_id() {
+  local etl_env="$1"
+  local user_id="$2"
+
+  if [[ -z "$user_id" || -z "$etl_env" ]]; then
+    return 0
+  fi
+
   local current_user
   current_user=$(grep -E '^DEFAULT_DIRECTUS_USER=' "$etl_env" | cut -d= -f2-)
   if [[ "$current_user" != "$user_id" ]]; then
