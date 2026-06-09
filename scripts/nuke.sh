@@ -31,7 +31,8 @@ if [[ "${1:-}" != "--yes" && "${1:-}" != "-y" ]]; then
   echo ""
   echo "  This will remove:"
   echo "    • All Docker containers"
-  echo "    • All named volumes (PostgreSQL, MSSQL, Redis, LocalStack data)"
+  echo "    • All named volumes (PostgreSQL, MSSQL, Redis, LocalStack data)
+    • S3 backup files (.s3-backup/)"
   echo "    • All orphaned containers"
   echo ""
   read -rp "  Type 'nuke' to confirm: " confirmation
@@ -63,6 +64,9 @@ docker compose down --volumes --remove-orphans 2>/dev/null || true
 
 log_info "Removing named volumes..."
 docker volume rm infra-postgis-data infra-mssql-data infra-redis-data infra-localstack-data 2>/dev/null || true
+
+log_info "Removing S3 backup..."
+rm -rf "$PROJECT_ROOT/.s3-backup"
 
 log_info "Removing any dangling images from this project..."
 docker image prune -f --filter "label=com.docker.compose.project=areadev-infra-2026" 2>/dev/null || true
