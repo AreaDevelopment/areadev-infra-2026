@@ -84,14 +84,21 @@ backup_s3() {
   log_step "Backing Up S3 Data"
   log_info "Exporting $object_count objects from s3://$bucket ..."
 
-  # Sync from S3 to a temp dir inside the container, then docker cp to host
+  # Seed the container with existing backup so s3 sync only downloads new/changed files
   docker exec infra-localstack rm -rf /tmp/s3-backup 2>/dev/null || true
-  docker exec infra-localstack mkdir -p "/tmp/s3-backup/$bucket"
+  docker exec infra-localstack mkdir -p "/tmp/s3-backup"
+  if [[ -d "$backup_dir/$bucket" ]] && [[ -n "$(ls -A "$backup_dir/$bucket" 2>/dev/null)" ]]; then
+    docker cp "$backup_dir/$bucket" "infra-localstack:/tmp/s3-backup/$bucket"
+  else
+    docker exec infra-localstack mkdir -p "/tmp/s3-backup/$bucket"
+  fi
+
+  # Only downloads files that are new or modified
   docker exec infra-localstack awslocal s3 sync \
     "s3://$bucket" "/tmp/s3-backup/$bucket" \
     --quiet
 
-  # Copy from container to host
+  # Copy back to host
   rm -rf "$backup_dir/$bucket"
   mkdir -p "$backup_dir"
   docker cp "infra-localstack:/tmp/s3-backup/$bucket" "$backup_dir/$bucket"
