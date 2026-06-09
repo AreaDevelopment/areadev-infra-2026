@@ -6,4 +6,5 @@ aws/node_modules/
 aws/cdk.out/
 .pids/
 .logs/
+.s3-backup/
 *.bak

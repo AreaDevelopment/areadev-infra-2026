@@ -147,6 +147,38 @@ wait_for_infra() {
 }
 
 # ─────────────────────────────────────────────────────────────
+# Restore S3 backup into LocalStack (if backup exists)
+# LocalStack Community stores S3 in-memory; this re-imports
+# objects that were exported by stop.sh before shutdown.
+# ─────────────────────────────────────────────────────────────
+restore_s3_backup() {
+  local backup_dir="$PROJECT_ROOT/.s3-backup"
+  local bucket="areadev-directus-storage-dev-1"
+
+  if [[ ! -d "$backup_dir/$bucket" ]] || [[ -z "$(ls -A "$backup_dir/$bucket" 2>/dev/null)" ]]; then
+    log_info "No S3 backup found — skipping restore"
+    return 0
+  fi
+
+  log_step "Restoring S3 Backup"
+
+  local file_count
+  file_count=$(find "$backup_dir/$bucket" -type f | wc -l)
+  log_info "Restoring $file_count files to s3://$bucket ..."
+
+  # Copy backup into the container, then use awslocal to upload
+  docker exec infra-localstack rm -rf /tmp/s3-restore 2>/dev/null || true
+  docker exec infra-localstack mkdir -p /tmp/s3-restore
+  docker cp "$backup_dir/$bucket" "infra-localstack:/tmp/s3-restore/$bucket"
+  docker exec infra-localstack awslocal s3 sync \
+    "/tmp/s3-restore/$bucket" "s3://$bucket" \
+    --quiet
+  docker exec infra-localstack rm -rf /tmp/s3-restore
+
+  log_ok "S3 backup restored ($file_count files)"
+}
+
+# ─────────────────────────────────────────────────────────────
 # Restore MSSQL legacy database (if not already present)
 # ─────────────────────────────────────────────────────────────
 restore_mssql() {
@@ -417,6 +449,7 @@ main() {
   install_and_build
   start_infra
   wait_for_infra 120
+  restore_s3_backup
   restore_mssql
   start_directus
   start_api
