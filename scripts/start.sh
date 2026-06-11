@@ -256,6 +256,9 @@ start_directus() {
 
   # Configure static API token for the admin user
   configure_directus_token
+
+  # Ensure required folders exist (some field configs reference specific UUIDs)
+  ensure_directus_folders
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -346,6 +349,63 @@ sync_directus_user_id() {
   if [[ "$current_user" != "$user_id" ]]; then
     sed -i "s/^DEFAULT_DIRECTUS_USER=.*/DEFAULT_DIRECTUS_USER=$user_id/" "$etl_env"
     log_ok "Updated DEFAULT_DIRECTUS_USER in ETL .env → $user_id"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────
+# Ensure required Directus folders exist
+# Some field configs (e.g. Vimeo extension outputFolder) reference
+# folder UUIDs that must be present in directus_folders.
+# ─────────────────────────────────────────────────────────────
+ensure_directus_folders() {
+  log_info "Ensuring required Directus folders exist..."
+
+  local etl_env="$ETL_DIR/.env"
+  local api_token
+  if [[ -f "$etl_env" ]]; then
+    api_token=$(grep -E '^API_TOKEN=' "$etl_env" | cut -d= -f2-)
+  fi
+  if [[ -z "$api_token" ]]; then
+    log_warn "No API token available — skipping folder check"
+    return 0
+  fi
+
+  # Required folders: UUID → name
+  declare -A required_folders=(
+    ["f652c5b8-7532-444a-aa23-b1fd895f4b23"]="video thumbnails"
+  )
+
+  local created=0
+  for uuid in "${!required_folders[@]}"; do
+    local name="${required_folders[$uuid]}"
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" \
+      -H "Authorization: Bearer $api_token" \
+      "http://localhost:8055/folders/$uuid")
+
+    if [[ "$status" == "200" ]]; then
+      continue
+    fi
+
+    # Create the folder with the specific UUID
+    local resp
+    resp=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8055/folders" \
+      -H "Authorization: Bearer $api_token" \
+      -H "Content-Type: application/json" \
+      -d "{\"id\":\"$uuid\",\"name\":\"$name\"}")
+
+    local code
+    code=$(echo "$resp" | tail -1)
+    if [[ "$code" == "200" || "$code" == "204" ]]; then
+      log_ok "Created Directus folder: $name ($uuid)"
+      (( created++ ))
+    else
+      log_warn "Failed to create folder '$name' ($uuid) — HTTP $code"
+    fi
+  done
+
+  if (( created == 0 )); then
+    log_ok "All required Directus folders present"
   fi
 }
 
