@@ -373,6 +373,7 @@ ensure_directus_folders() {
   # Required folders: UUID → name
   declare -A required_folders=(
     ["f652c5b8-7532-444a-aa23-b1fd895f4b23"]="video thumbnails"
+    ["02100a33-4212-4492-93e3-cb957d76cf06"]="podcast artwork"
   )
 
   local created=0
