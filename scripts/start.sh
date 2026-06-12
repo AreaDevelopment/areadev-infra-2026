@@ -289,7 +289,8 @@ configure_directus_token() {
     log_ok "Directus API token already valid"
     # Still sync the user ID in case it changed
     user_id=$(curl -s -H "Authorization: Bearer $api_token" http://localhost:8055/users/me \
-      | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+      | node -e 'const d=require("fs").readFileSync(0,"utf8");try{const v=JSON.parse(d).data.id;if(!v)throw new Error("data.id missing");console.log(v)}catch(e){console.error("JSON parse error:",e.message);process.exit(1)}') \
+      || log_warn "Could not extract user ID from Directus response"
     sync_directus_user_id "$etl_env" "$user_id"
     return 0
   fi
@@ -303,7 +304,8 @@ configure_directus_token() {
     -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\"}")
 
   local access_token
-  access_token=$(echo "$login_response" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['access_token'])" 2>/dev/null)
+  access_token=$(echo "$login_response" | node -e 'const d=require("fs").readFileSync(0,"utf8");try{const v=JSON.parse(d).data.access_token;if(!v)throw new Error("data.access_token missing");console.log(v)}catch(e){console.error("JSON parse error:",e.message);process.exit(1)}') \
+    || { log_warn "Failed to parse Directus login response"; access_token=""; }
   if [[ -z "$access_token" ]]; then
     log_warn "Could not login to Directus — skipping token configuration"
     return 0
@@ -312,7 +314,8 @@ configure_directus_token() {
   # Get the admin user's ID
   local user_id
   user_id=$(curl -s -H "Authorization: Bearer $access_token" http://localhost:8055/users/me \
-    | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+    | node -e 'const d=require("fs").readFileSync(0,"utf8");try{const v=JSON.parse(d).data.id;if(!v)throw new Error("data.id missing");console.log(v)}catch(e){console.error("JSON parse error:",e.message);process.exit(1)}') \
+    || log_warn "Could not extract user ID from Directus response"
 
   # Set the static token on the admin user
   curl -s -X PATCH "http://localhost:8055/users/$user_id" \
@@ -345,9 +348,15 @@ sync_directus_user_id() {
   fi
 
   local current_user
-  current_user=$(grep -E '^DEFAULT_DIRECTUS_USER=' "$etl_env" | cut -d= -f2-)
+  current_user=$(grep -E '^DEFAULT_DIRECTUS_USER=' "$etl_env" | cut -d= -f2-) || true
   if [[ "$current_user" != "$user_id" ]]; then
-    sed -i "s/^DEFAULT_DIRECTUS_USER=.*/DEFAULT_DIRECTUS_USER=$user_id/" "$etl_env"
+    if grep -qE '^DEFAULT_DIRECTUS_USER=' "$etl_env"; then
+      sed -i "s/^DEFAULT_DIRECTUS_USER=.*/DEFAULT_DIRECTUS_USER=$user_id/" "$etl_env"
+    else
+      # Ensure trailing newline before appending
+      [[ -s "$etl_env" && $(tail -c1 "$etl_env" | wc -l) -eq 0 ]] && echo "" >> "$etl_env"
+      echo "DEFAULT_DIRECTUS_USER=$user_id" >> "$etl_env"
+    fi
     log_ok "Updated DEFAULT_DIRECTUS_USER in ETL .env → $user_id"
   fi
 }
